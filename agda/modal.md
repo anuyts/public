@@ -3,35 +3,146 @@ J.w.w. Malin Altenmüller, Joris Ceulemans, Lucas Escot, Josselin Poiret
 
 ## Short list of things to be done
 
-- Abstract mode theory interface, with several orthogonal instances
-   - relevance
-   - cohesion
-   - quantity (unless viewed as substructural)
-   - polarity
-   - guarded
-   - easy to add
-- Interface
-   - order
-   - composition & left division
-      - quickcheck unit & co-unit
-   - NO addition
-   - mode of types
-   - parametric modality
-   - parametric conjugation (overridable default implementation)
-      - quickcheck
-   - unit modality
-   - default modality for functions
-   - default modality for definitions
-- Quantity
-   - either a 2-mode system
-   - or substructural
 - Mode
    - Annotate judgement (i.e. TCM) with a mode instead of a modality
+   - Modes & modules
+   - Metamode
+- Abstract mode theory interface
+  - with several orthogonal instances
+    - relevance
+    - cohesion
+    - quantity (unless viewed as substructural)
+      - either a 2-mode system
+      - or substructural
+    - polarity
+    - guarded
+    - easy to add
+  - Interface
+    - order
+    - composition & left division
+      - quickcheck unit & co-unit
+    - NO addition
+    - mode of types
+    - parametric modality
+    - parametric conjugation (overridable default implementation)
+      - quickcheck
+    - unit modality
+    - default modality for functions
+    - default modality for definitions
 - Modal module & record fields
 - Think about future support for explicit 2-cells
 - Maximal annotation for functions
 - Syntax
    - maybe be principled, eg `pol:++`, `coh:\b`, ...
+
+## Implementing modes
+
+Currently, the judgement (i.e. the TCM) is annotated with a modality. This modality
+serves two purposes:
+
+1. It remembers how to access definitions (which can have a modal annotation) so that
+   you cannot access e.g. an irrelevant definition in a relevant position. Theoretically,
+   this means that it serves as a lazy left devision on the namespace of definitions.
+2. For erasure, it remembers what mode we are in.
+
+The annotation should be kept solely for the first purpose.
+For the second purpose, we should have a mode annotation instead of a modality annotation.
+
+### Modes and modules
+
+Currently, modules cannot be annotated with a modality.
+In multimode type theory, this becomes annoying. (Since unimode type theory is a special case
+of multimode type theory, it probably already is annoying.) Indeed, I guess Agda would
+start typechecking a file in some fixed starter mode (e.g. `programMode` and not `logicalMode`).
+But maybe we want to do a couple of definitions in another mode, so it would be practical to
+annotate an entire module.
+In Menkar, modal annotations on definitions and modules are really just locks appearing
+in the parameter telescopes, so you can put them on anything. I think in Agda
+we should at least be able to have a modal annotation which boils down to having a lock
+in front of all the parameters.
+This means that the first purpose above will become more complicated: the modality
+with respect to which we access other definitions, depends on how far outwards
+we have to reach through the nested modules that we're currently in. So I guess we need
+a list of modalities instead.
+
+### Top-level definitions and the metamode
+Josselin fixed a bug in cohesion that allowed using non-flat definitions in flat positions.
+This probably breaks a lot of code written using the flat modality. The reason is that
+in Agda flat, the following rule
+```
+Γ |– t : Box-flat T
+-------------------
+Γ |– unbox t : T
+```
+is illegal *unless `Γ` is the empty context*. So the following is theoretically ok:
+```agda
+module M where
+  postulate A : Set
+  
+  @flat A' : Set
+  A' = A
+```
+
+but the following is not:
+```
+module M (A : Set) where
+  Id : Set
+  Id = A
+  
+  @flat Id' : Set
+  Id' = Id
+```
+
+Since modalities in Agda do not behave differently depending on whether the context is empty,
+they either accept or refute both of the examples. They used to accept both, which is a bug.
+After Josselin's fix, they now refute both. But I suspect that instances of the first
+example are all over people's agda-flat code, so we need to give them a way out.
+
+I think top-level definitions, i.e. definitions (within a module or not) that do not have a single
+module parameter, should not be annotated with a modality, but with a mode. These things
+are then not considered as defined programs in the context, but as defined derivations in
+the metacontext. The above then becomes:
+
+```agda
+module M where
+  postulate &theonlymode A : Set
+  
+  &theonlymode A' : Set
+  A' = A
+```
+
+Perhaps similarly, we should have module parameters annotated with a mode (up until the first
+module annotated with a mode). Then a context will consist of:
+- A bunch of closed metavariables (in the non-Agda sense) annotated with a mode
+- A signpost that says: "As of this point, we're working internal to the type system,
+  and we're starting at mode `m`"
+- A bunch of variables annotated with a modality whose codomain is `m`
+
+It would be sane to only allow mode-annotated arguments on modules and not on function types.
+However, module entries externally look like functions. Actually that's not too bad,
+then we just get metafunction metatypes.
+
+This is probably all quite hard to implement, but we can obtain it by freely extending the
+mode theory with:
+* a new initial mode `meta`, with unique modalities `fromMeta m : meta -> m` to all pre-existing modes `m`,
+  - note that initiality implies that `µ º fromMeta m = fromMeta n`,
+* each `fromMeta` has a right adjoint `toMeta m : m -> meta`,
+  - note that initiality implies that `toMeta m º fromMeta m = id : meta -> meta`
+  - note that `boxMeta m = fromMeta m º toMeta m : m -> m` is an idempotent comonad,
+    which indicates a metatheoretical dependency.
+  - more generally, `viaMeta m n = fromMeta n º toMeta m : m -> n` is the least modality
+    `m -> n`. Indeed, we have
+    ```
+    µ ≥ boxMeta n º µ º boxMeta m
+    = boxMeta n º viaMeta m n
+    = viaMeta m n
+    ```
+* pattern-matching should be disallowed under `toMeta m`.
+
+We start at mode `meta`. Instead of annotating a definition/parameter with mode `m`,
+we annotate with `toMeta m`. When we enter that position, we left divide the context
+by `toMeta m`, which is equivalent to composing with `fromMeta m`. This turns
+`id : meta -> meta` into `fromMeta m : meta -> m` and `toMeta n` into `viaMeta m n`.
 
 ## Some mode theories
 
@@ -96,9 +207,10 @@ where `logicalMode` is modelled in sets and
 - The Sierpiński topos,
 - The arrow category of Set,
 - Presheaves over the walking arrow.
-  (If you want to model type erasure, you get a problem in `programMode`, and the problem can be
-  traced down to the impossibility to get the type at runtime if it's been erased. Presheaf
-  models are intrinsically typed, you know.)
+  
+(If you want to model type erasure, you get a problem in `programMode`, and the problem can be
+traced down to the impossibility to get the type at runtime if it's been erased. Presheaf
+models are intrinsically typed, you know.)
 
 We give a name to one composed modality:
 
@@ -183,36 +295,6 @@ category with same terminal object) over this category, but clocks
 will be meta-things (e.g. natural numbers).
 The tick-based approach to guarded type theory is better suited
 to be extended with multiple clocks.
-
-## Implementing modes
-
-Currently, the judgement (i.e. the TCM) is annotated with a modality. This modality
-serves two purposes:
-
-1. It remembers how to access definitions (which can have a modal annotation) so that
-   you cannot access e.g. an irrelevant definition in a relevant position. Theoretically,
-   this means that it serves as a lazy left devision on the namespace of definitions.
-2. For erasure, it remembers what mode we are in.
-
-The annotation should be kept solely for the first purpose.
-For the second purpose, we should have a mode annotation instead of a modality annotation.
-
-### Modes and modules
-
-Currently, modules cannot be annotated with a modality.
-In multimode type theory, this becomes annoying. (Since unimode type theory is a special case
-of multimode type theory, it probably already is annoying.) Indeed, I guess Agda would
-start typechecking a file in some fixed starter mode (e.g. `programMode` and not `logicalMode`).
-But maybe we want to do a couple of definitions in another mode, so it would be practical to
-annotate an entire module.
-In Menkar, modal annotations on definitions and modules are really just locks appearing
-in the parameter telescopes, so you can put them on anything. I think in Agda
-we should at least be able to have a modal annotation which boils down to having a lock
-in front of all the parameters.
-This means that the first purpose above will become more complicated: the modality
-with respect to which we access other definitions, depends on how far outwards
-we have to reach through the nested modules that we're currently in. So I guess we need
-a list of modalities instead.
 
 ## Modal record fields and module entries
 

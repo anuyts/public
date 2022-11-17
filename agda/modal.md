@@ -33,9 +33,11 @@ J.w.w. Malin Altenmüller, Joris Ceulemans, Lucas Escot, Josselin Poiret
 - Syntax
    - maybe be principled, eg `pol:++`, `coh:\b`, ...
 
-## Quantities
+## Some mode theories
 
-### Mode theory for erasure and non-erasure
+### Quantities
+
+#### Mode theory for erasure and non-erasure
 
 We can view the erasure theory as a mode theory, provided that we do not care about quantities
 other than 0 and ω.
@@ -139,7 +141,7 @@ Another sign that we've done things right is that, at `logicalMode`, there reall
 is only one endomodality. Above, we saw that when the judgement is annotated with
 `@0`, then erasure and non-erasure get conflated.
 
-### Substructural system for quantities
+#### Substructural system for quantities
 
 Quantities currently seem to have been implemented with a substructural system in mind.
 When checking a (multiplicative?) term, quantities of subterms should be added.
@@ -159,6 +161,28 @@ application should be checked as follows:
 -------------------------------
 Γ,  p times x : A |— f b : B             >> Γ'', r times x : A
 ```
+
+### Guarded
+Currently, `--guarded` gives you a system with exactly one clock.
+With modalities, we can easily get a system with ≤1 clock.
+The mode theory is then the modal bowling pin (or torpedo in ascii):
+```
+                               constantly
+                 +-----------------<---------------+     +-->--+
+                /                                   \   /      |
+             timeless              ⊥              timeful     | later
+                \                                   /   \      |
+                 +----------------->---------------+     +--<--+
+                                forever
+```
+where `constantly º forever = id : timeless -> timeless`
+and `always = forever º constantly : timeful -> timeful` is a comonad.
+
+To obtain multiclock type theory, we could take the free (cartesian
+category with same terminal object) over this category, but clocks
+will be meta-things (e.g. natural numbers).
+The tick-based approach to guarded type theory is better suited
+to be extended with multiple clocks.
 
 ## Implementing modes
 

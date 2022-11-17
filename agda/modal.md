@@ -1,34 +1,14 @@
 # Proposal: Multimode Agda
 J.w.w. Malin Altenmüller, Joris Ceulemans, Lucas Escot, Josselin Poiret
 
-## Short list of things to be done
+## Rough table of contents
 
 - Mode
    - Annotate judgement (i.e. TCM) with a mode instead of a modality
    - Modes & modules
    - Metamode
 - Abstract mode theory interface
-  - with several orthogonal instances
-    - relevance
-    - cohesion
-    - quantity (unless viewed as substructural)
-      - either a 2-mode system
-      - or substructural
-    - polarity
-    - guarded
-    - easy to add
-  - Interface
-    - order
-    - composition & left division
-      - quickcheck unit & co-unit
-    - NO addition
-    - mode of types
-    - parametric modality
-    - parametric conjugation (overridable default implementation)
-      - quickcheck
-    - unit modality
-    - default modality for functions
-    - default modality for definitions
+- Several orthogonal instances
 - Modal module & record fields
 - Think about future support for explicit 2-cells
 - Maximal annotation for functions
@@ -295,6 +275,49 @@ category with same terminal object) over this category, but clocks
 will be meta-things (e.g. natural numbers).
 The tick-based approach to guarded type theory is better suited
 to be extended with multiple clocks.
+
+## Abstract mode theory interface
+
+It would be good if there is a general interface that needs to be implement to add a mode theory to Agda.
+Here, we discuss the methods in this interface.
+
+* A type of modes
+* A type of modalities
+* A partial order on modalities
+  * In the future, we may instead use a type of 2-cells
+* A composition operation on modalities with matching (co)domain
+  * Associativity is quickcheckable
+* A left division operation `(µ \ —) : Mod p n -> Mod p m` which is left adjoint
+  to `(µ º —) : Mod p m -> Mod p n`. This means that either of the following quickcheckable properties
+  needs to be satisfied:
+  * `forall ρ μ ν . ρ \ μ ≤ ν iff ρ ≤ μ º ν`
+  * `forall ρ μ . ρ \ (ρ º μ) ≤ μ` (co-unit) and `forall ρ μ . μ ≤ ρ º (ρ \ μ)` (unit)
+* Addition should **not** be part of a general mode theory interface, as it is relevant only to
+  substructural theories.
+* the identity (a.k.a. unit) modality
+  * Unit laws are quickcheckable
+* the default modality for binders
+* related to module entries and record fields:
+  * the default modality for module entries and record fields
+  * `hasLeftAdjoint`: a function that computes whether a modality has an internal left adjoint.
+    A very smart standard implementation with proof-in-comments is presently present in the agda code base.
+    If a modality `µ` has an internal left adjoint, then it can be computed as `µ \ id`.
+    In general, `µ \ id` is the universal (minimal) **upper** approximation of the left adjoint, in the sense that we have the unit law
+    ```
+    id ≤ µ º (µ \ id)
+    ```
+  * `getApproximateLeftAdjoint`: a function that computes whether a modality `µ` has a **lower** approximation
+    of the left adjoint, i.e. a modality `κ` such that we have the co-unit `κ \ µ ≤ id`.
+    This inequality may have multiple solutions. In that case, we return the universal (maximal) solution,
+    unless there us no unique maximal solution.
+    For example, in the polarity system, `*` (mixed) has lower-approximate left adjoints `{—, +, *}`, but this set of modalities
+    does not have a join.
+* related to type annotations (see `workOnTypes`):
+  * for every mode `m`, a mode of types `ty m`
+  * for every mode `m`, a **parametroid** modality `par m : ty m -> m`
+  * a bar operation (parametroid conjugation), sending `µ : m -> n` to `bar µ : ty m -> ty n` defined by
+    `bar µ = par n \ (µ º par m)` (TODO: check in degrees of relatedness paper).
+    Since the function is defined, any more efficient implementation is easily quickcheckable.
 
 ## Modal record fields and module entries
 

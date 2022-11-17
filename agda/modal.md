@@ -56,10 +56,6 @@ with respect to which we access other definitions, depends on how far outwards
 we have to reach through the nested modules that we're currently in. So I guess we need
 a list of modalities instead.
 
-TODO syntax for data/record
-
-TODO For cohesion, modules are just a way to have a shared telescope
-
 ### Top-level definitions and the metamode
 Josselin fixed a bug in cohesion that allowed using non-flat definitions in flat positions.
 This probably breaks a lot of code written using the flat modality. The reason is that
@@ -90,7 +86,9 @@ module M (A : Set) where
 
 Since modalities in Agda do not behave differently depending on whether the context is empty,
 they either accept or refute both of the examples. They used to accept both, which is a bug.
-(**EDIT:** I think I misunderstood the bug Josselin fixed; to be continued.)
+(**EDIT:** I think I misunderstood the bug Josselin fixed. In fact, it turns out that w.r.t. cohesion,
+modules are entirely see-through w.r.t. their desugaring as top-level definitions, i.e. the telescope
+of a module simply gets distributed over its entries and they are type-checked accordingly.)
 After Josselin's fix, they now refute both. But I suspect that instances of the first
 example are all over people's agda-flat code, so we need to give them a way out.
 
@@ -355,6 +353,7 @@ then we need to assign `b` a type when viewed from outside the module.
 Usually, this is done by just Π'ing up all the module parameters. However,
 Π-types do not and should not take a modality annotation on their codomain.
 
+#### Convert modal entries by left division (only if left adjoint)
 One solution is to commute the modality with the module parameters by left dividing.
 The above would thus be equivalent to
 
@@ -385,6 +384,7 @@ So we should
 **only allow modal annotations on definitions for modalities that have an internal left adjoint** (or otherwise the module should only be opened in telescopes, which we can then think of as a "pattern match").
 In all other cases, users should wrap their definition in a modal datatype (which then has no projection, for good reasons!).
 
+#### Directly interpret entries as top-level functions (not sound w.r.t. type-checking)
 Note: perhaps we can be **slightly more permissive** and allow modal annotations for modalities which have a best approximation-from-below to their left adjoint. Then we do not convert module entry definitions (as this is not possible) but directly interpret them in the converted type.
 
 To make sense of the following module:
@@ -420,6 +420,18 @@ I haven't the faintest clue if this holds in general. I cannot prove it and cann
 | b    | cont | cont | cont | cont |
 | cont | b    | b    | cont | cont |
 |      |      |      |      |      |
+
+#### Type-check entries as top-level functions right away
+This is of course possible and sound, but for the same reason that the above is unsound, the current approach will be counterintuitive, e.g. modal fields in the same module will not be accessible under the same conditions that modal variables are accessible (unless the concerned modality has a left adjoint). This is the current implementation of cohesion, even though flat does not have a left adjoint.
+So in this case the user should get a warning if they annotate a field with a modality that does not have a left adjoint, with a recommendation to use a modal box instead.
+
+Of course it is currently not possible to put a datatype declaration in a modal box. We should probably allow this.
+The box should come before the parameters, which come before the colon, so we need syntax for a lock in a telescope.
+I have no idea how to write the types of the constructors of a type that is caught in a box **for which we may have no eta, and perhaps not even a projection!**
+
+So yes, let's just give users a warning to put datatypes in a box *without* any language support that makes such a thing possible.
+Thanks to polarities, they can define their datatypes as the `Mu` of a strictly positive function and get the constructors for free.
+This way, the box causes no headaches to the Agda implementors, only to the end user.
 
 ### Modal record fields
 

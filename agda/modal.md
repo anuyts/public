@@ -1,6 +1,16 @@
 # Proposal: Multimode Agda
 J.w.w. Malin Altenmüller, Joris Ceulemans, Lucas Escot, Josselin Poiret
 
+## Intro
+At the Agda Implementers' Meeting XXXI, the above people have worked on implementing a modal
+type system for polarities (isovariant/parametric/natural/unused, strictly positive, positive,
+negative, mixed-variant) for Agda, as a replacement of the current polarity checker for (co)inductive
+types. Their code can currently be found at
+https://github.com/flupe/agda/tree/polarity
+
+Lots of interesting problems popped up and were discussed. This note intends to provide
+an overview of all the things to be considered when implementing MTT for Agda.
+
 ## Rough table of contents
 
 - Mode
@@ -10,6 +20,7 @@ J.w.w. Malin Altenmüller, Joris Ceulemans, Lucas Escot, Josselin Poiret
 - Abstract mode theory interface
 - Several orthogonal instances
 - Modal module & record fields
+- `workOnTypes` / the parametroid modality
 - Think about future support for explicit 2-cells
 - Maximal annotation for functions
 - Syntax
@@ -45,6 +56,10 @@ with respect to which we access other definitions, depends on how far outwards
 we have to reach through the nested modules that we're currently in. So I guess we need
 a list of modalities instead.
 
+TODO syntax for data/record
+
+TODO For cohesion, modules are just a way to have a shared telescope
+
 ### Top-level definitions and the metamode
 Josselin fixed a bug in cohesion that allowed using non-flat definitions in flat positions.
 This probably breaks a lot of code written using the flat modality. The reason is that
@@ -75,6 +90,7 @@ module M (A : Set) where
 
 Since modalities in Agda do not behave differently depending on whether the context is empty,
 they either accept or refute both of the examples. They used to accept both, which is a bug.
+(**EDIT:** I think I misunderstood the bug Josselin fixed; to be continued.)
 After Josselin's fix, they now refute both. But I suspect that instances of the first
 example are all over people's agda-flat code, so we need to give them a way out.
 
@@ -318,6 +334,8 @@ Here, we discuss the methods in this interface.
   * a bar operation (parametroid conjugation), sending `µ : m -> n` to `bar µ : ty m -> ty n` defined by
     `bar µ = par n \ (µ º par m)` (TODO: check in degrees of relatedness paper).
     Since the function is defined, any more efficient implementation is easily quickcheckable.
+* Sometimes, it is necessary to override the general behaviour. For example, a system for polarities will
+  check the domain of a function type with negative modality and the codomain with a strictly positive Γ |—modality.
 
 ## Modal record fields and module entries
 
@@ -358,6 +376,7 @@ Box-µ (   (@(µ \ ρ) a : A) -> B   )
 
 is only definable internally if `µ` has an internal left adjoint
 (i.e. if there is a modality `κ` such that `(κ º —) = (µ \ —)`).
+In this case, the conversion is even an equivalence.
 
 Even an approximate left adjoint `κ º µ ≤ id` is not good enough.
 
@@ -514,4 +533,118 @@ mixed: [+ | —] º * ≤ id
 
 So we cannot use iso, pos, neg or mixed as annotations on fields and definitions.
 
-### Whatever
+## `workOnTypes` / The parametroid modality
+### Intro
+* In ParamDTT, type annotations on terms are checked under the parametric modality.
+* In RelDTT, type annotations on terms at depth (mode) `d` are checked under the parametric modality `par : d+1 -> d`.
+* In the current erasure system, type annotations on terms are checked under the erasure modality.
+* In the proposed erasure system, type annotations on terms
+  - at mode `programMode` should be checked under the modality `trivialRuntime : logicalMode -> programMode`,
+  - at mode `logicalMode` should be checked under the identity modality
+* In the cohesion system, type annotations are checked under the identity modality.
+
+The common pattern here is that for every mode `m`, there is a mode `ty m` where the universe of `m`-types lives,
+and a modality `par m : ty m -> m` for transporting types to the mode of their programs, where they can be used to annotate
+these programs. We shall call `par m` the **parametroid** modality and `ty m` the mode of types.
+
+### Presheaf semantics and Hofmann-Streicher universe
+Any presheaf category is a CwF (category with families, model of dependent type theory) equipped with a model
+of the universe, called the Hofmann-Streicher universe. Let us denote it by SetHS. It admits the following rule:
+```
+Γ |– A : SetHS
+---------------
+Γ |— ElHS A type
+```
+Of course we would usually omit `ElHS`.
+
+In a sytem where universes are modelled as Hofmann-Streicher universes, the parametroid modality is just the identity.
+
+However, when building a model, we can choose to model Agda's universe not as the Hofmann-Streicher universe, but as a
+different universe, which we will denote just `Set`, from which there is a modal function
+```
+&m el : (@(par m) &(ty m) A : Set) -> SetHS
+```
+Then we get
+```
+par m \ Γ |— A : Set
+------------------------
+Γ |— el A : SetHS
+------------------------
+Γ |— ElHS (el A) type
+```
+which explains that e.g. a lambda-term for the non-modal function type, which would normally take a non-modal domain
+annotation of type `SetHS`, can actually take a parametric domain annotation of type `Set`.
+
+### Understanding parametroid modality via Hofmann-Streicher universe
+
+#### Non-modal Π-type
+With a universe à la Russell, such as `SetHS`, we generally have type constructors for the universe, type constructors
+for the judgement, and equations relating both, such as
+```
+ElHS (πHS A (x.B)) = Π (ElHS A) (x.ElHS B)
+```
+Similarly, we would like to have type constructors at `Set` with equations such as
+```
+el (π A (x.B)) = πHS (el A) (x.el B)
+```
+Since these are really the equations that define `el`, we would like the RHS to be well-typed whenever the LHS is.
+(The converse is not as much a requirement.)
+
+Now the question is: how do we type-check this?
+
+On the RHS, `A` is a parametroid subterm, so checked in `par m \ Γ`.
+`B` is a parametroid subterm, and `x` is bound outside of `el`, so
+`B` is checked in `par m \ (Γ , x : ElHS (el A))`.
+
+This has to be consistent with what we find on the left. If we enter `el` on the left, we are
+in `par m \ Γ`, so `A` is type-checked in the correct context. In `B`, we have to bind `x` with modality `par m \ id`.
+
+#### Modal Π-type
+Consider
+```
+el (π-µ A (x.B)) = πHS-µ (el A) (x.el B)
+```
+where `µ : m -> n`. The derivation tree is:
+```
+&(ty m) (µ º par) \ Γ |— A : Set
+================================= rewrite context
+&(ty m) par \ (µ \ Γ) |— A : Set                       &(ty n)  (par \ Γ), @(par \ µ) x : ElHS (el A) |— B : Set
+---------------------------------                      -----------------------------------------------
+&m      µ \ Γ |– el A : SetHS                          &n       Γ, @µ x : ElHS (el A) |– el B : SetHS
+-----------------------------------------------------------------------------------------
+&n      Γ |– πHS-µ (el A) (x.el B) : SetHS
+```
+On the left, we will check the domain under modality `bar µ : ty m -> ty n` and decide later how to compute `bar µ`.
+In `B`, we clearly have to bind `x` with modality `par \ µ : m -> ty n`
+The derivation tree is
+```
+&(ty m) (par º bar µ) \ Γ |— A : Set
+==================================== rewrite context
+&(ty m) bar µ \ (par \ Γ) |— A : Set                  &(ty n)  (par \ Γ), @(par \ µ) x : ElHS (el A) |— B : Set
+---------------------------------------------------------------------------------------------------------------
+&(ty n) par \ Γ |— π-µ A (x.B) : Set
+--------------------------------------
+&n      Γ |— el (π-µ A (x.B)) : SetHS
+```
+We want the RHS to be defined when the LHS is, i.e. if
+```
+&(ty m) (par º bar µ) \ Γ |— A : Set
+```
+is derivable then so should
+```
+&(ty m) (µ º par) \ Γ |— A : Set
+```
+so there should be a substitution
+```
+(µ º par) \ Γ   ->   (par º bar µ) \ Γ
+```
+i.e. (since left division is contravariant)
+```
+par º bar µ ≤ µ º par
+```
+In general, the *other* inequality holds. Fortunately, in RelDTT, this is an equality.
+**Do we have a problem here when generalizing to arbitrary systems?**
+Well I don't know, I guess `bar µ` can be anything solving the above inequality?
+In the paper, we find however that the other inequality must also hold, so I guess we need to solve `bar µ` such that
+`par º bar µ = µ º par`
+i.e. we need a functor `ty : ModeTheory -> ModeTheory` and a natural transformation `par : ty -> id`.

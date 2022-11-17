@@ -170,7 +170,7 @@ The mode theory is then the modal bowling pin (or torpedo in ascii):
                                constantly
                  +-----------------<---------------+     +-->--+
                 /                                   \   /      |
-             timeless              ⊥              timeful     | later
+             timeless              ⊥               timeful     | later
                 \                                   /   \      |
                  +----------------->---------------+     +--<--+
                                 forever

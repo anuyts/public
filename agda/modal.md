@@ -168,15 +168,15 @@ With modalities, we can easily get a system with ≤1 clock.
 The mode theory is then the modal bowling pin (or torpedo in ascii):
 ```
                                constantly
-                 +-----------------<---------------+     +-->--+
+                 +----------------->---------------+     +-->--+
                 /                                   \   /      |
              timeless              ⊥               timeful     | later
                 \                                   /   \      |
-                 +----------------->---------------+     +--<--+
+                 +-----------------<---------------+     +--<--+
                                 forever
 ```
-where `constantly º forever = id : timeless -> timeless`
-and `always = forever º constantly : timeful -> timeful` is a comonad.
+where `forever º constantly = id : timeless -> timeless`
+and `always = constantly º forever : timeful -> timeful` is a comonad.
 
 To obtain multiclock type theory, we could take the free (cartesian
 category with same terminal object) over this category, but clocks

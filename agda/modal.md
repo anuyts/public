@@ -22,7 +22,7 @@ an overview of all the things to be considered when implementing MTT for Agda.
 - Modal module & record fields
 - `workOnTypes` / the parametroid modality
 - Think about future support for explicit 2-cells
-- Maximal annotation for functions
+- Principal annotation for functions
 - Syntax
    - maybe be principled, eg `pol:++`, `coh:\b`, ...
 

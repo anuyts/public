@@ -1,4 +1,5 @@
 # Proposal: Multimode Agda
+J.w.w. Malin Altenmüller, Joris Ceulemans, Lucas Escot, Josselin Poiret
 
 ## Short list of things to be done
 

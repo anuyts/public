@@ -8,8 +8,9 @@ negative, mixed-variant) for Agda, as a replacement of the current polarity chec
 types. Their code can currently be found at
 https://github.com/flupe/agda/tree/polarity
 
-Lots of interesting problems popped up and were discussed. This note intends to provide
-an overview of all the things to be considered when implementing MTT for Agda.
+Lots of interesting problems popped up and were discussed. This note intends to discuss
+everything that needs to be considered both in future modal extensions of Agda and in the current implementation
+(because a couple of things are currently off). This note will keep evolving.
 
 ## Rough table of contents
 

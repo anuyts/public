@@ -405,6 +405,8 @@ we then need to do
 
 i.e. we need `(ν \ µ) º (µ \ ρ) ≤ ν \ ρ`. Denote the approximate left adjoint by `µ*`. Then we have:
 
+**Stop right there! This inequality is the wrong way!!!**
+
 ```
 (ν \ µ) º (µ \ ρ) ≤ ν \ ρ
 µ* º µ ≤ id

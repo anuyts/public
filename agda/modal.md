@@ -393,8 +393,8 @@ To make sense of the following module:
 ```agda
 module (@ρ a : A) where
   postulate
-    @µ b : B
-    @ν c : C
+    @µ b : B -- depends on a
+    @ν c : C -- depends on b
 ```
 
 we then need to do
@@ -423,6 +423,55 @@ I haven't the faintest clue if this holds in general. I cannot prove it and cann
 | b    | cont | cont | cont | cont |
 | cont | b    | b    | cont | cont |
 |      |      |      |      |      |
+
+**If we put the inequality right**, we get
+```
+ν \ ρ ≤ (ν \ µ) º (µ \ ρ)
+```
+or equivalently
+```
+ρ ≤ ν º (ν \ µ) º (µ \ ρ)
+```
+which is true:
+```
+ρ ≤ μ º (μ \ ρ) ≤ ν º (ν \ µ) º (µ \ ρ)
+```
+
+##### Module application
+**Additional problem:** Partial / complete module application (a.k.a. module sections) is a cause of concern!
+
+Suppose you have
+```agda
+module M (@µ x : A) where
+  @ν b : B
+  
+-- Here, outside M, we have M.b : (@(ν \ µ) x : A) -> B
+
+module N (@µ x' : A) where
+  open M x'
+  -- What does this even mean for b?
+```
+
+We solve the problem in a bit more generality. Below, `Γ` and `Δ` are arbitrary telescopes.
+```
+module M Γ where
+  @ν b : B
+  
+-- Here, outside M, we have M.b : ν \ Γ -> B
+
+module N Δ where
+  open M σ -- σ : Δ -> Γ
+  
+  -- ν \ σ : ν \ Δ -> ν \ Γ
+  -- So the open statement brings into scope:
+  @ν b[ν \ σ] : B[ν \ σ]
+```
+
+Note: we can refactor `open M x'` as
+```
+module M-substituted = M σ
+open M-substituted
+```
 
 #### Type-check entries as top-level functions right away
 This is of course possible and sound, but for the same reason that the above is unsound, the current approach will be counterintuitive, e.g. modal fields in the same module will not be accessible under the same conditions that modal variables are accessible (unless the concerned modality has a left adjoint). This is the current implementation of cohesion, even though flat does not have a left adjoint.
